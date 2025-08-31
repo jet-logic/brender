@@ -38,3 +38,7 @@ jobs:
         run: |
           chmod -Rv +x tests/blender
           tests/blender --help
+
+      - name: Test render
+        run: |
+          python tests/render_1.py
