@@ -41,7 +41,7 @@ class Render:
     scene_name = "Scene"
     skip_factor = 1
     frame_range = (1, 100)
-    workers = min(cpu_count() / 4, 2)
+    workers = max(int(cpu_count() / 4), 2)
     res_percent = -1  # 0-100
     with_audio: bool | None = None
     blender_bin = "blender"
