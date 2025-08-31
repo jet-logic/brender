@@ -1,11 +1,6 @@
 from brender import Render
 from os.path import join, dirname
 
-r = Render()
-d = dirname(__file__)
-r.blender_file = join(d, "repeat_zone_flower_by_MiRA.blend")
-r.blender_bin = join(d, "blender")
-
 
 def prepare(scene):
     scene.render.resolution_percentage = 25
@@ -19,7 +14,6 @@ def prepare(scene):
     scene.eevee.use_gtao = False
     scene.eevee.use_bloom = False
     scene.eevee.use_ssr = False
-
     # Cycles (if switched manually)
     if scene.render.engine == "CYCLES":
         cycles = scene.cycles
@@ -29,7 +23,6 @@ def prepare(scene):
         cycles.max_bounces = 3
         cycles.preview_samples = 16
         cycles.use_denoising = True
-
     # Simplify
     scene.render.use_simplify = True
     scene.render.simplify_subdivision_render = 0
@@ -37,6 +30,10 @@ def prepare(scene):
     scene.render.simplify_volumes = 0.5
 
 
+r = Render()
+d = dirname(__file__)
+r.blender_file = join(d, "repeat_zone_flower_by_MiRA.blend")
+r.blender_bin = join(d, "blender")
 r.skip_factor = 4
 r.render_frames()
 r.wait()

@@ -39,7 +39,11 @@ jobs:
         run: |
           chmod -Rv +x tests/blender
           tests/blender --help
-
+      - uses: FedericoCarboni/setup-ffmpeg@v3
+        id: setup-ffmpeg
+      - name: Test ffmpeg
+        run: |
+          ffmpeg --help
       - name: Test render
         run: |
-          python tests/render_1.py
+          python tests/render_1.py | grep 'Saved:'
