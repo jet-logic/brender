@@ -136,7 +136,7 @@ class Render:
         return self.file_info["frame_range"][1]
 
     def _get_file_info(self):
-        with NamedTemporaryFile(delete_on_close=False) as msg:
+        with NamedTemporaryFile() as msg:
             msg.close()
             Popen(
                 [
