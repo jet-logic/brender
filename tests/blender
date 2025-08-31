@@ -1,0 +1,46 @@
+#!/bin/sh
+
+SCRIPT=$0
+
+DEST=$(dirname "$SCRIPT")
+
+CONFIG=~/.config/blender-bin-install.sh
+
+if [ -e "$CONFIG" ]; then
+	. "$CONFIG"
+fi
+
+if [ -z "$BLNDR_ARCHIVE_URL" ]; then
+	BLNDR_ARCHIVE_URL=https://download.blender.org/release/Blender4.5/blender-4.5.1-linux-x64.tar.xz
+fi
+
+if [ -z "$FFMPEG_TAR_XZ_SAVE" ]; then
+	BLNDR_ARCHIVE_SAVE=$HOME/blender-4.5.1-linux-x64.tar.xz
+fi
+
+if [ -z "$BLNDR_HOME" ]; then
+	BLNDR_HOME=$HOME/blender
+fi
+
+if [ -z "$BLNDR_BIN" ]; then
+	BLNDR_BIN="$BLNDR_HOME/blender"
+fi
+
+echo "Blender '$BLNDR_ARCHIVE_URL' by '$SCRIPT' here '$BLNDR_HOME'"
+echo "  -> '$BLNDR_ARCHIVE_SAVE'"
+
+rm -v "$0"
+
+if [ ! -f "$0" ] ; then
+	set -x
+	[ -f "$BLNDR_ARCHIVE_SAVE" ]  || curl -s -o "$BLNDR_ARCHIVE_SAVE" "$BLNDR_ARCHIVE_URL"
+	[ -d "$BLNDR_HOME" ] || mkdir -p "$BLNDR_HOME"
+	if [ ! -f "$BLNDR_BIN" ] ; then
+		tar xvJf "$BLNDR_ARCHIVE_SAVE" -C "$BLNDR_HOME" --strip-components 1 --wildcards --no-anchored
+	fi
+  	"$BLNDR_BIN" --version
+	if [ ! -f "$0" ] ; then
+		ln -vs "$BLNDR_BIN" "$0"
+		[ -f "$0" ] && exec "$0" "$@"
+	fi
+fi
