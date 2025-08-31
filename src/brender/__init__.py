@@ -314,16 +314,3 @@ class Render:
         jobs = self._jobs
         while jobs:
             jobs.pop().wait()
-
-    def debug(self):
-        from __main__ import prepare
-
-        source = inspect.getsource(prepare)
-        from sys import argv
-
-        print(prepare.__name__)
-
-        print(source, list(argv))
-
-
-# TODO: audio codec
