@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 import inspect
 import shlex
 from math import ceil
-from subprocess import Popen
-from os import path, cpu_count
+from subprocess import PIPE, Popen
+from os import path, cpu_count, environ
 from tempfile import NamedTemporaryFile, gettempdir
 from pathlib import Path
 from json import load
@@ -33,6 +33,26 @@ def ffargs(d: dict):
                     yield f"-{k}"
                     if v is not None:
                         yield str(v)
+
+
+def task1(scene_name, dest):
+    from json import dump
+    import bpy
+
+    scene = bpy.data.scenes[scene_name]
+    with open(dest, "w") as w:
+        dump(
+            {
+                "frame_range": [scene.frame_start, scene.frame_end],
+                "fps": scene.render.fps,
+                "fps_base": scene.render.fps_base,
+                "has_audio": any(
+                    seq.type == "SOUND"
+                    for seq in getattr(scene.sequence_editor, "sequences_all", [])
+                ),
+            },
+            w,
+        )
 
 
 @dataclass
@@ -138,33 +158,43 @@ class Render:
     def _get_file_info(self):
         with NamedTemporaryFile() as msg:
             msg.close()
-            Popen(
-                [
-                    self.blender_bin,
-                    "-b",
-                    self.blender_file,
-                    "-S",
-                    self.scene_name,
-                    "-q",
-                    "--python-expr",
-                    (
-                        "import bpy, sys, os, json;"
-                        "from subprocess import Popen;"
-                        "from pathlib import Path;"
-                        "scene=bpy.data.scenes['%s']; "
-                        "Path(%r).write_text(json.dumps({"
-                        "'frame_range':[scene.frame_start,scene.frame_end],"
-                        "'fps':scene.render.fps,"
-                        "'fps_base':scene.render.fps_base,"
-                        "'has_audio':any(seq.type=='SOUND' for seq in getattr(scene.sequence_editor,'sequences_all',[]))"
-                        "}))"
-                    )
-                    % (self.scene_name, msg.name),
-                ],
-                stdout=None,
-            ).wait()
+            with NamedTemporaryFile(mode="w+", prefix="task", delete=False) as tmp2:
+                tmp2.write(inspect.getsource(task1))
+                tmp2.write(f"\n{task1.__name__}({self.scene_name!r}, {msg.name!r})")
+                tmp2.flush()
+                Popen(
+                    [
+                        self.blender_bin,
+                        "-b",
+                        self.blender_file,
+                        "-S",
+                        self.scene_name,
+                        "-q",
+                        "--python",
+                        tmp2.name,
+                        # "import sys; exec(sys.stdin.read())",
+                        "--",
+                        self.scene_name,
+                        msg.name,
+                    ],
+                    # stdin=PIPE,
+                    # text=True,
+                    # env={},
+                    # check=True,
+                ).wait()
+            # .communicate(
+            #     r"""
+            # import bpy
+            # scene = bpy.data.scenes['{scene_name}']"
+            # """
+            # )
             with open(msg.name) as r:
-                return load(r)
+                d = load(r)
+                say(f"Frame: {d['frame_range']!r}")
+                say(f"Fps: {d['fps']} / {d['fps_base']}")
+                # say(f"Scene: {['fps']} / {['fps_base']}")
+                return d
+            # 'import sys; exec(sys.stdin.read())'
 
     def render_frames(self, **kwargs):
         start_frame = self.start_frame
