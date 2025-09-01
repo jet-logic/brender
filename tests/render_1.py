@@ -1,5 +1,6 @@
 from brender import Render
 from os.path import join, dirname
+from os import environ
 
 
 def prepare(scene):
@@ -11,9 +12,9 @@ def prepare(scene):
     scene.render.simplify_volumes = 0.5
     # Disable costly effects
     scene.render.use_motion_blur = False
-    scene.eevee.use_gtao = False
-    scene.eevee.use_bloom = False
-    scene.eevee.use_ssr = False
+    # scene.eevee.use_gtao = False
+    # scene.eevee.use_bloom = False
+    # scene.eevee.use_ssr = False
     # Cycles (if switched manually)
     if scene.render.engine == "CYCLES":
         cycles = scene.cycles
@@ -33,7 +34,8 @@ def prepare(scene):
 r = Render()
 d = dirname(__file__)
 r.blender_file = join(d, "repeat_zone_flower_by_MiRA.blend")
-r.blender_bin = join(d, "blender")
+r.blender_bin = environ.get("BLENDER_BIN") or "blender"
 r.skip_factor = 4
-r.render_frames()
+# r.render_frames()
+r.render_video()
 r.wait()
