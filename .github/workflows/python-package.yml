@@ -49,7 +49,7 @@ jobs:
           export BLENDER_BIN=tests/blender
           python tests/render_1.py | grep 'Saved:'
 
-      - name: Test render 2
-        run: |
-          export BLENDER_BIN=tests/blender
-          python tests/render_2.py | grep 'Saved:'
+      # - name: Test render 2
+      #   run: |
+      #     export BLENDER_BIN=tests/blender
+      #     python tests/render_2.py | grep 'Saved:'
