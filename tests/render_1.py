@@ -10,6 +10,7 @@ def prepare(scene):
     scene.render.simplify_subdivision_render = 0
     scene.render.simplify_child_particles = 0.1
     scene.render.simplify_volumes = 0.5
+    scene.render.film_transparent = True
     # Disable costly effects
     scene.render.use_motion_blur = False
     # scene.eevee.use_gtao = False
@@ -39,3 +40,4 @@ r.skip_factor = 4
 # r.render_frames()
 r.render_video()
 r.wait()
+# r.final_video

@@ -70,6 +70,8 @@ class Render:
     frames_strf = "F{!d}"
     frames_format = "png"
     ffmpeg_bin = "ffmpeg"
+    output_audio = ""
+    output_video = ""
     container: str = "mov"  # avi, mov, mkv, mp4
     video_args: dict | list | str = "-c:v prores_ks -profile:v 5"
     audio_args: dict | list | str = field(default_factory=lambda: [])
@@ -111,37 +113,67 @@ class Render:
         )
 
     def _get_output_dir(self):
-        return Path(gettempdir()) / (
-            Path(self.blender_file).stem + "_" + self.scene_name
-        )
+
+        return Path(gettempdir()) / Path(self.blender_file).stem
 
     def _get_frames_dir(self):
-        return str(
-            Path(gettempdir()) / (Path(self.blender_file).stem + "_" + self.scene_name)
-        )
+        return path.join(self.output_dir, "frames")
+        # return str(
+        #     Path(gettempdir()) / (Path(self.blender_file).stem + "_" + self.scene_name)
+        # )
 
     def _get_final_audio(self):
-        return str(
-            Path(gettempdir())
-            / (
-                Path(self.blender_file).stem
-                + "_"
-                + self.scene_name
-                + "."
-                + self.sound_mix_args["container"].lower()
-            )
-        )
+        x = self.output_audio
+        if not x:
+            x = "//" + self.scene_name
+        if x.startswith("//"):
+            x = path.join(self.output_dir, x[2:])
+        return x + "." + self.sound_mix_args["container"].lower()
+        # return str(
+        #     Path(gettempdir())
+        #     / (
+        #         Path(self.blender_file).stem
+        #         + "_"
+        #         + self.scene_name
+        #         + "."
+        #         + self.sound_mix_args["container"].lower()
+        #     )
+        # )
 
     def _get_final_video(self):
-        return str(
-            Path(gettempdir())
-            / (
-                Path(self.blender_file).stem
-                + "_"
-                + self.scene_name
-                + f".{self.container.lower()}"
+        x = self.output_video
+        if not x:
+            x = "//" + self.scene_name
+        if x.startswith("//"):
+            x = path.join(self.output_dir, x[2:])
+        start_frame = self.start_frame
+        end_frame = self.end_frame
+        skip_factor = self.skip_factor
+        final_fps = self.final_fps
+        return (
+            x
+            + "_"
+            + "_".join(
+                x
+                for x in [
+                    str(start_frame),
+                    str(end_frame),
+                    "" if skip_factor == 1 else str(skip_factor),
+                    f"{final_fps:f}".strip("0").strip("."),
+                ]
+                if x
             )
+            + f".{self.container.lower()}"
         )
+        # return str(
+        #     Path(gettempdir())
+        #     / (
+        #         Path(self.blender_file).stem
+        #         + "_"
+        #         + self.scene_name
+        #         + f".{self.container.lower()}"
+        #     )
+        # )
 
     def _get_has_audio(self):
         return self.file_info["has_audio"]
@@ -172,29 +204,16 @@ class Render:
                         "-q",
                         "--python",
                         tmp2.name,
-                        # "import sys; exec(sys.stdin.read())",
                         "--",
                         self.scene_name,
                         msg.name,
                     ],
-                    # stdin=PIPE,
-                    # text=True,
-                    # env={},
-                    # check=True,
                 ).wait()
-            # .communicate(
-            #     r"""
-            # import bpy
-            # scene = bpy.data.scenes['{scene_name}']"
-            # """
-            # )
             with open(msg.name) as r:
                 d = load(r)
                 say(f"Frame: {d['frame_range']!r}")
                 say(f"Fps: {d['fps']} / {d['fps_base']}")
-                # say(f"Scene: {['fps']} / {['fps_base']}")
                 return d
-            # 'import sys; exec(sys.stdin.read())'
 
     def render_frames(self, **kwargs):
         start_frame = self.start_frame
@@ -266,6 +285,7 @@ class Render:
 
     def mix_sound(self):
         mix_args = {"filepath": self.final_audio, "container": "WAV", "codec": "PCM"}
+        Path(mix_args["filepath"]).parent.mkdir(exist_ok=True)
         cmd = [
             self.blender_bin,
             "-b",
@@ -334,6 +354,7 @@ class Render:
 
         cmd.extend(ffargs(self.video_args))
         cmd += [self.final_video]
+        # scene_1_4_4_fps.ext
 
         say("Video:", shlex.join([str(x) for x in cmd]))
         self._jobs.append(Popen([str(x) for x in cmd]))
