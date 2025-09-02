@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 import inspect
 import shlex
 from math import ceil
@@ -14,7 +13,7 @@ def say(*args, **kwargs):
     print(*args, file=stderr, **kwargs)
 
 
-def ffargs(d: dict):
+def ffargs(d: dict | list | str):
     if isinstance(d, (list, tuple)):
         for v in d:
             yield str(v)
@@ -55,44 +54,40 @@ def task1(scene_name, dest):
         )
 
 
-@dataclass
 class Render:
-    blender_file = "target.blend"
-    scene_name = "Scene"
-    skip_factor = 1
-    frame_range = (1, 100)
-    workers = max(int(cpu_count() / 4), 2)
-    res_percent = -1  # 0-100
-    with_audio: bool | None = None
-    blender_bin = "blender"
-    audio_suffix = ".wav"
-    frames_stem = "F######"
-    frames_strf = "F{!d}"
-    frames_format = "png"
-    ffmpeg_bin = "ffmpeg"
-    output_audio = ""
-    output_video = ""
-    container: str = "mov"  # avi, mov, mkv, mp4
-    video_args: dict | list | str = "-c:v prores_ks -profile:v 5"
-    audio_args: dict | list | str = field(default_factory=lambda: [])
-    sound_mix_args = {"container": "WAV", "codec": "PCM"}
-    final_video: str = field(init=False)
-    video_path: str = field(init=False)
-    audio_path: str = field(init=False)
-    frames_dir: str = field(init=False)
-    final_fps: int = field(init=False)
-    file_info: dict = field(init=False)
-    has_audio: bool = field(init=False)
-    start_frame: int = field(init=False)
-    end_frame: int = field(init=False)
-    final_audio: str = field(init=False)
-    output_dir: str = field(init=False)
-    input_file: str = ""
-    delete_audio_after: bool | None = None
-    delete_frames_after: bool | None = None
-    _jobs: list[Popen] = field(default_factory=list)
-    prepare = None
-    ready = None
+
+    final_video: str
+    video_path: str
+    audio_path: str
+    frames_dir: str
+    final_fps: int
+    _file_info: dict
+    has_audio: bool
+    start_frame: int
+    end_frame: int
+    final_audio: str
+    output_dir: str
+    blender_bin: str
+
+    def __init__(self, blender_file="", scene_name=""):
+        self.blender_file = blender_file or environ.get("BLENDER_FILE")
+        self.scene_name = scene_name or environ.get("SCENE") or "Scene"
+        self.skip_factor = 1
+        self._jobs: list[Popen] = []
+        self.workers = max(int(cpu_count() / 4), 2)
+        self.with_audio: bool | None = None
+        self.audio_suffix = ".wav"
+        self.frames_stem = "F######"
+        self.frames_strf = "F{!d}"
+        self.frames_format = "png"
+        self.ffmpeg_bin = "ffmpeg"
+        self.output_audio = ""
+        self.output_video = ""
+        self.container: str = "mov"  # avi, mov, mkv, mp4
+        self.video_args: dict | list | str = "-c:v prores_ks -profile:v 5"
+        self.audio_args: dict | list | str = ""
+        self.sound_mix_args = {"container": "WAV", "codec": "PCM"}
+        self.input_file: str = ""
 
     def __getattr__(self, name):
         f = not name.startswith("_get_") and getattr(self, f"_get_{name}", None)
@@ -100,6 +95,7 @@ class Render:
             setattr(self, name, None)
             v = f()
             setattr(self, name, v)
+            name.startswith("_") or say(f"{name}: {v}")
             return v
         try:
             m = super().__getattr__
@@ -112,15 +108,15 @@ class Render:
             f"{c.__module__}.{c.__qualname__} has no attribute '{name}'"
         )
 
-    def _get_output_dir(self):
+    def _get_blender_bin(self):
+        v = environ.get("BLENDER_BIN") or "blender"
+        return v
 
+    def _get_output_dir(self):
         return Path(gettempdir()) / Path(self.blender_file).stem
 
     def _get_frames_dir(self):
         return path.join(self.output_dir, "frames")
-        # return str(
-        #     Path(gettempdir()) / (Path(self.blender_file).stem + "_" + self.scene_name)
-        # )
 
     def _get_final_audio(self):
         x = self.output_audio
@@ -129,16 +125,6 @@ class Render:
         if x.startswith("//"):
             x = path.join(self.output_dir, x[2:])
         return x + "." + self.sound_mix_args["container"].lower()
-        # return str(
-        #     Path(gettempdir())
-        #     / (
-        #         Path(self.blender_file).stem
-        #         + "_"
-        #         + self.scene_name
-        #         + "."
-        #         + self.sound_mix_args["container"].lower()
-        #     )
-        # )
 
     def _get_final_video(self):
         x = self.output_video
@@ -165,29 +151,22 @@ class Render:
             )
             + f".{self.container.lower()}"
         )
-        # return str(
-        #     Path(gettempdir())
-        #     / (
-        #         Path(self.blender_file).stem
-        #         + "_"
-        #         + self.scene_name
-        #         + f".{self.container.lower()}"
-        #     )
-        # )
 
     def _get_has_audio(self):
-        return self.file_info["has_audio"]
+        return self._file_info["has_audio"]
 
     def _get_final_fps(self):
-        return (self.file_info["fps"] // self.skip_factor) / self.file_info["fps_base"]
+        return (self._file_info["fps"] // self.skip_factor) / self._file_info[
+            "fps_base"
+        ]
 
     def _get_start_frame(self):
-        return self.file_info["frame_range"][0]
+        return self._file_info["frame_range"][0]
 
     def _get_end_frame(self):
-        return self.file_info["frame_range"][1]
+        return self._file_info["frame_range"][1]
 
-    def _get_file_info(self):
+    def _get__file_info(self):
         with NamedTemporaryFile() as msg:
             msg.close()
             with NamedTemporaryFile(mode="w+", prefix="task", delete=False) as tmp2:
@@ -248,29 +227,25 @@ class Render:
         tail = ["-F", frames_format.upper()]
         if skip_factor != 1:
             tail.extend(["-j", (skip_factor)])
-        tail += [
-            "--python-expr",
-            ";".join(
-                [
-                    v
-                    for v in (
-                        f"import bpy",
-                        f"scene = bpy.data.scenes['{scene_name}']",
-                        (
-                            f"scene.render.resolution_percentage={self.res_percent};"
-                            if self.res_percent > 0
-                            else ""
-                        ),
-                    )
-                    if v
-                ]
-            )
-            + (
-                ("\n" + inspect.getsource(func) + "\n" + f"{func.__name__}(scene)")
-                if func
-                else ""
-            ),
-        ]
+        if func:
+            tail += [
+                "--python-expr",
+                ";".join(
+                    [
+                        v
+                        for v in (
+                            f"import bpy",
+                            f"scene = bpy.data.scenes['{scene_name}']",
+                        )
+                        if v
+                    ]
+                )
+                + (
+                    ("\n" + inspect.getsource(func) + "\n" + f"{func.__name__}(scene)")
+                    if func
+                    else ""
+                ),
+            ]
 
         tail += ["-a"]
         for i in range(workers):
@@ -350,11 +325,9 @@ class Render:
                 self.mix_sound().wait()
             cmd += ["-i", self.final_audio]
             cmd += ffargs(self.audio_args)
-            # cmd += ["-af", "apad=whole_dur=1"]
 
         cmd.extend(ffargs(self.video_args))
         cmd += [self.final_video]
-        # scene_1_4_4_fps.ext
 
         say("Video:", shlex.join([str(x) for x in cmd]))
         self._jobs.append(Popen([str(x) for x in cmd]))

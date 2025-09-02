@@ -35,7 +35,6 @@ def prepare(scene):
 r = Render()
 d = dirname(__file__)
 r.blender_file = join(d, "repeat_zone_flower_by_MiRA.blend")
-r.blender_bin = environ.get("BLENDER_BIN") or "blender"
 r.skip_factor = 4
 # r.render_frames()
 r.render_video()
