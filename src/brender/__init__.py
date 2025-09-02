@@ -2,7 +2,7 @@ import inspect
 import shlex
 from math import ceil
 from subprocess import PIPE, Popen
-from os import path, cpu_count, environ
+from os import mkdir, path, cpu_count, environ
 from tempfile import NamedTemporaryFile, gettempdir
 from pathlib import Path
 from json import load
@@ -207,7 +207,10 @@ class Render:
         frames_stem = self.frames_stem
         frames_format = self.frames_format
         output_path = path.join(frames_dir, f"{frames_stem}.{frames_format}")
+        script_path = path.join(self.output_dir, f"prepare.py")
 
+        Path(frames_dir).mkdir(exist_ok=True, parents=True)
+        Path(script_path).parent.mkdir(exist_ok=True)
         # --- start render chunks ---
         func = None
         try:
@@ -228,24 +231,12 @@ class Render:
         if skip_factor != 1:
             tail.extend(["-j", (skip_factor)])
         if func:
-            tail += [
-                "--python-expr",
-                ";".join(
-                    [
-                        v
-                        for v in (
-                            f"import bpy",
-                            f"scene = bpy.data.scenes['{scene_name}']",
-                        )
-                        if v
-                    ]
-                )
-                + (
-                    ("\n" + inspect.getsource(func) + "\n" + f"{func.__name__}(scene)")
-                    if func
-                    else ""
-                ),
-            ]
+            with open(script_path, "w") as w:
+                w.write(f"import bpy\n")
+                w.write(f"scene = bpy.data.scenes['{scene_name}']\n")
+                w.write(inspect.getsource(func))
+                w.write(f"\n{func.__name__}(scene)")
+            tail += ["-P", script_path]
 
         tail += ["-a"]
         for i in range(workers):
@@ -306,6 +297,7 @@ class Render:
         )
         self.wait()
         self.frame_files(check_render=True)
+        Path(self.input_file).parent.mkdir(exist_ok=True)
 
         cmd += [
             "-use_wallclock_as_timestamps",
