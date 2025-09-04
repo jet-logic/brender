@@ -47,14 +47,11 @@ jobs:
       - name: Test render 1
         run: |
           export BLENDER_BIN=tests/blender
+          export OUTPUT_DIR=render1
           WORKERS=1 python tests/render_1.py | grep 'Saved:'
 
       - name: Test render 2
         run: |
           export BLENDER_BIN=tests/blender
-          WORKERS=2 python tests/render_1.py | grep 'Saved:'
-
-      # - name: Test render 2
-      #   run: |
-      #     export BLENDER_BIN=tests/blender
-      #     python tests/render_2.py | grep 'Saved:'
+          export OUTPUT_DIR=render2
+          WORKERS=2 python tests/render_1.py

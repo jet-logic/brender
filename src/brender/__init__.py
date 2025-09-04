@@ -121,7 +121,8 @@ class Render:
         return v if v > 0 else max(int(cpu_count() / 4), 2)
 
     def _get_output_dir(self):
-        return Path(gettempdir()) / Path(self.blender_file).stem
+        v = environ.get("OUTPUT_DIR") or ""
+        return v if v else Path(gettempdir()) / Path(self.blender_file).stem
 
     def _get_frames_dir(self):
         return path.join(self.output_dir, "frames")
