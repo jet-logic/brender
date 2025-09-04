@@ -68,13 +68,13 @@ class Render:
     final_audio: str
     output_dir: str
     blender_bin: str
+    workers: int
 
     def __init__(self, blender_file="", scene_name=""):
         self.blender_file = blender_file or environ.get("BLENDER_FILE")
         self.scene_name = scene_name or environ.get("SCENE") or "Scene"
         self.skip_factor = 1
         self._jobs: list[Popen] = []
-        self.workers = max(int(cpu_count() / 4), 2)
         self.with_audio: bool | None = None
         self.audio_suffix = ".wav"
         self.frames_stem = "F######"
@@ -111,6 +111,14 @@ class Render:
     def _get_blender_bin(self):
         v = environ.get("BLENDER_BIN") or "blender"
         return v
+
+    def _get_workers(self):
+        v = -1
+        try:
+            v = int(environ.get("WORKERS"))
+        except:
+            pass
+        return v if v > 0 else max(int(cpu_count() / 4), 2)
 
     def _get_output_dir(self):
         return Path(gettempdir()) / Path(self.blender_file).stem
